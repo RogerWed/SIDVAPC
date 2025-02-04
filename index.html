@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIDVA</title>
+	<link href="icon.png" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+
+        .venta-card {
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+        .venta-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .mensaje-animado {
+            animation: slideIn 1s ease;
+        }
+		
+         footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }	
+		
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .estado-pendiente { background-color: #fff3cd !important; }
+        .estado-pagado { background-color: #d4edda !important; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container py-4">
+        <h1 class="text-center mb-4">Sistema de Ventas de Agua 💧</h1>
+        <!-- Formulario de Registro -->
+        <div class="card mb-4 shadow">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-plus-circle"></i> Nueva Venta</h5>
+                <form id="formVenta">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="fecha" required>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" placeholder="Nombre del comprador" id="nombre" required>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="pago" required>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" placeholder="Cantidad" id="cantidad" min="1" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" placeholder="Monto (Bs)" id="monto" step="0.01" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" placeholder="Litros" id="litros" min="1" required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> Registrar Venta</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <input type="date" class="form-control" id="filtroFecha">
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control" placeholder="Buscar por nombre" id="filtroNombre">
+            </div>
+        </div>
+
+        <!-- Resumen y Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card shadow mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-chart-line"></i> Estadísticas</h5>
+                        <div id="estadisticas" class="row text-center">
+                            <!-- Datos estadísticos se actualizarán aquí -->
+                        </div>
+                        <div id="mensajeVentas" class="text-center mt-3 fw-bold mensaje-animado"></div>
+                    </div>
+                </div>
+                
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-list"></i> Registro de Ventas</h5>
+                        <div id="listaVentas">
+                            <!-- Ventas se mostrarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Control -->
+            <div class="col-md-4">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="fas fa-cogs"></i> Acciones</h5>
+                        <button class="btn btn-success w-100 mb-3" onclick="generarPDF()"><i class="fas fa-file-pdf"></i> General Cierre del Dia</button>
+                        <button class="btn btn-danger w-100" onclick="resetTodo()"><i class="fas fa-trash"></i> Reiniciar Sistema</button>
+                        <div class="mt-3">
+                            <textarea class="form-control" placeholder="Observaciones" id="observacion"></textarea>
+                        </div>
+						<div>
+			                <footer>
+                                Copyright 2025 RogerWed. Todos los derechos reservados | App Ver 5.0 | Interfaz HyperVission 2.5 
+                            </footer>	
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28"></script>
+
+    <script>
+        let ventas = JSON.parse(localStorage.getItem('ventas')) || [];
+
+        // Guardar venta
+        document.getElementById('formVenta').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nuevaVenta = {
+                id: Date.now(),
+                fecha: document.getElementById('fecha').value,
+                nombre: document.getElementById('nombre').value,
+                pago: document.getElementById('pago').value,
+                cantidad: parseInt(document.getElementById('cantidad').value),
+                monto: parseFloat(document.getElementById('monto').value),
+                litros: parseInt(document.getElementById('litros').value),
+                estado: 'Pendiente'
+            };
+            ventas.push(nuevaVenta);
+            guardarDatos();
+            actualizarUI();
+            e.target.reset();
+        });
+
+        // Actualizar UI
+        function actualizarUI() {
+            const filtroFecha = document.getElementById('filtroFecha').value;
+            const filtroNombre = document.getElementById('filtroNombre').value.toLowerCase();
+            
+            let ventasFiltradas = ventas.filter(v => {
+                return (!filtroFecha || v.fecha === filtroFecha) &&
+                       (!filtroNombre || v.nombre.toLowerCase().includes(filtroNombre));
+            });
+
+            mostrarVentas(ventasFiltradas);
+            mostrarEstadisticas(ventasFiltradas);
+        }
+
+        // Mostrar ventas
+        function mostrarVentas(ventas) {
+            const lista = document.getElementById('listaVentas');
+            lista.innerHTML = ventas.map(v => `
+                <div class="venta-card card mb-2 ${v.estado === 'Pagado' ? 'estado-pagado' : 'estado-pendiente'}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-8">
+                                <h6>${v.nombre}</h6>
+                                <small>${v.fecha} - ${v.cantidad} bot. (${v.litros}L c/u)</small>
+                            </div>
+                            <div class="col-4 text-end">
+                                <span class="badge bg-${v.pago === 'Efectivo' ? 'success' : 'primary'}">${v.pago}</span>
+                                <h5>Bs ${v.monto.toFixed(2)}</h5>
+                                <select class="form-select form-select-sm estado-select" data-id="${v.id}">
+                                    <option ${v.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                    <option ${v.estado === 'Pagado' ? 'selected' : ''}>Pagado</option>
+                                </select>
+                                <button class="btn btn-sm btn-danger mt-1" onclick="eliminarVenta(${v.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Eliminar venta
+        function eliminarVenta(id) {
+            ventas = ventas.filter(v => v.id !== id);
+            guardarDatos();
+            actualizarUI();
+        }
+
+        // Actualizar estado
+        document.addEventListener('change', (e) => {
+            if(e.target.classList.contains('estado-select')) {
+                const id = parseInt(e.target.dataset.id);
+                const venta = ventas.find(v => v.id === id);
+                venta.estado = e.target.value;
+                guardarDatos();
+                actualizarUI();
+            }
+        });
+
+        // Estadísticas
+        function mostrarEstadisticas(ventas) {
+            const totales = ventas.reduce((acc, v) => ({
+                montoTotal: acc.montoTotal + v.monto,
+                efectivo: acc.efectivo + (v.pago === 'Efectivo' ? v.monto : 0),
+                movil: acc.movil + (v.pago === 'Pago Móvil' ? v.monto : 0),
+                litros: acc.litros + (v.litros * v.cantidad),
+                botellones: acc.botellones + v.cantidad
+            }), { montoTotal: 0, efectivo: 0, movil: 0, litros: 0, botellones: 0 });
+
+            document.getElementById('estadisticas').innerHTML = `
+                <div class="col">
+                    <div class="text-primary">Total Bs</div>
+                    <h3>${totales.montoTotal.toFixed(2)}</h3>
+                </div>
+                <div class="col">
+                    <div class="text-success">Efectivo</div>
+                    <h3>${totales.efectivo.toFixed(2)}</h3>
+                </div>
+                <div class="col">
+                    <div class="text-info">Pago Móvil</div>
+                    <h3>${totales.movil.toFixed(2)}</h3>
+                </div>
+                <div class="col">
+                    <div class="text-warning">Litros</div>
+                    <h3>${totales.litros}</h3>
+                </div>
+                <div class="col">
+                    <div class="text-danger">Botellones</div>
+                    <h3>${totales.botellones}</h3>
+                </div>
+            `;
+
+            const mensaje = document.getElementById('mensajeVentas');
+            mensaje.className = 'text-center mt-3 fw-bold mensaje-animado';
+            if(totales.botellones >= 17) {
+                mensaje.textContent = '🔥 Día con ALTAS ventas!';
+                mensaje.style.color = 'green';
+            } else if(totales.botellones >= 10) {
+                mensaje.textContent = '👍 Día MEDIANO en ventas';
+                mensaje.style.color = 'orange';
+            } else if(totales.botellones < 5) {
+                mensaje.textContent = '😟 Día BAJO en ventas';
+                mensaje.style.color = 'red';
+            } else {
+                mensaje.textContent = '';
+            }
+        }
+
+        // Generar PDF
+        function generarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const fecha = new Date().toLocaleDateString();
+            
+            doc.setFontSize(18);
+            doc.text(`Corte del Día - ${fecha}`, 15, 15);
+            
+            doc.setFontSize(12);
+            doc.text(`Observación: ${document.getElementById('observacion').value}`, 15, 25);
+            
+            const ventasFiltradas = ventas.filter(v => 
+                v.fecha === document.getElementById('filtroFecha').value || !document.getElementById('filtroFecha').value
+            );
+            
+            const totales = ventasFiltradas.reduce((acc, v) => ({
+                litros: acc.litros + (v.litros * v.cantidad),
+                botellones: acc.botellones + v.cantidad,
+                efectivo: acc.efectivo + (v.pago === 'Efectivo' ? v.monto : 0),
+                movil: acc.movil + (v.pago === 'Pago Móvil' ? v.monto : 0),
+            }), { litros: 0, botellones: 0, efectivo: 0, movil: 0 });
+
+            const data = [
+                ['Litros Totales', totales.litros],
+                ['Botellones Vendidos', totales.botellones],
+                ['Total Efectivo', `Bs ${totales.efectivo.toFixed(2)}`],
+                ['Total Pago Móvil', `Bs ${totales.movil.toFixed(2)}`],
+                ['TOTAL GENERAL', `Bs ${(totales.efectivo + totales.movil).toFixed(2)}`]
+            ];
+
+            doc.autoTable({
+                startY: 35,
+                head: [['Concepto', 'Valor']],
+                body: data,
+                theme: 'grid',
+                headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+                alternateRowStyles: { fillColor: [245, 245, 245] }
+            });
+
+            doc.save(`Corte_${fecha.replace(/\//g, '-')}.pdf`);
+        }
+
+        // Helpers
+        function guardarDatos() {
+            localStorage.setItem('ventas', JSON.stringify(ventas));
+        }
+
+        function resetTodo() {
+            localStorage.removeItem('ventas');
+            ventas = [];
+            actualizarUI();
+        }
+
+        // Event Listeners
+        document.getElementById('filtroFecha').addEventListener('change', actualizarUI);
+        document.getElementById('filtroNombre').addEventListener('input', actualizarUI);
+        document.addEventListener('DOMContentLoaded', actualizarUI);
+    </script>
+</body>
+</html>
